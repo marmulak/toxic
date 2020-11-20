@@ -134,6 +134,43 @@ static struct line_info *line_info_ret_queue(struct history *hst)
     return line;
 }
 
+static bool room_for_char(const char *s, size_t cur_idx, int x_limit)
+{
+    for (size_t i = 0; s[i]; ++i) {
+        if (i >= x_limit) {
+            return false;
+        }
+
+        if (s[i] == ' ') {
+            return true;
+        }
+    }
+
+    return true;
+}
+
+/* Prints `s` to window, wrapping at the last word that fits on the current line. */
+static void print_word_wrap(WINDOW *win, const char *s, int max_x)
+{
+    int x;
+    int y;
+
+    UNUSED_VAR(y);
+
+    size_t len = strlen(s);
+
+    for (size_t i = 0; i < len; ++i) {
+        const char ch = s[i];
+        getyx(win, y, x);
+
+        if (room_for_char(&s[i], i, max_x - x)) {
+            wprintw(win, "%c", ch);
+        } else {
+            wprintw(win, "\n%c", ch);
+        }
+    }
+}
+
 /* creates new line_info line and puts it in the queue.
  *
  * Returns the id of the new line.
@@ -366,7 +403,8 @@ void line_info_print(ToxWindow *self)
                         wattron(win, COLOR_PAIR(RED));
                     }
 
-                    wprintw(win, "%s%c", line, msg ? '\n' : '\0');
+                    print_word_wrap(win, line, x2);
+                    print_word_wrap(win, msg ? "\n" : "\0", x2);
 
                     if (line[0] == '>') {
                         wattroff(win, COLOR_PAIR(GREEN));
@@ -406,7 +444,8 @@ void line_info_print(ToxWindow *self)
                 wattroff(win, COLOR_PAIR(BLUE));
 
                 wattron(win, COLOR_PAIR(YELLOW));
-                wprintw(win, "%s %s %s", user_settings->line_normal, line->name1, line->msg);
+                wprintw(win, "%s %s", user_settings->line_normal, line->name1);
+                print_word_wrap(win, line->msg, x2);
                 wattroff(win, COLOR_PAIR(YELLOW));
 
                 if (type == OUT_ACTION && timed_out(line->timestamp, NOREAD_FLAG_TIMEOUT)) {
@@ -438,7 +477,8 @@ void line_info_print(ToxWindow *self)
                     wattron(win, COLOR_PAIR(line->colour));
                 }
 
-                wprintw(win, "%s\n", line->msg);
+                print_word_wrap(win, line->msg, x2);
+                wprintw(win, "\n");
 
                 if (line->bold) {
                     wattroff(win, A_BOLD);
@@ -456,7 +496,7 @@ void line_info_print(ToxWindow *self)
                 wattroff(win, COLOR_PAIR(GREEN));
 
                 if (line->msg[0]) {
-                    wprintw(win, "%s", line->msg);
+                    print_word_wrap(win, line->msg, x2);
                 }
 
                 wprintw(win, "\n");
@@ -474,7 +514,7 @@ void line_info_print(ToxWindow *self)
                 wprintw(win, "%s ", line->name1);
                 wattroff(win, A_BOLD);
 
-                wprintw(win, "%s\n", line->msg);
+                print_word_wrap(win, line->msg, x2);
                 wattroff(win, COLOR_PAIR(line->colour));
 
                 break;
@@ -491,7 +531,7 @@ void line_info_print(ToxWindow *self)
                 wprintw(win, "%s ", line->name1);
                 wattroff(win, A_BOLD);
 
-                wprintw(win, "%s\n", line->msg);
+                print_word_wrap(win, line->msg, x2);
                 wattroff(win, COLOR_PAIR(line->colour));
 
                 break;
@@ -507,7 +547,7 @@ void line_info_print(ToxWindow *self)
                 wprintw(win, "%s", line->name1);
                 wattroff(win, A_BOLD);
 
-                wprintw(win, "%s", line->msg);
+                print_word_wrap(win, line->msg, x2);
 
                 wattron(win, A_BOLD);
                 wprintw(win, "%s\n", line->name2);
